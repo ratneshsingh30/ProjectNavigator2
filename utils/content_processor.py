@@ -3,8 +3,10 @@ from .openai_helpers import get_resources as openai_get_resources
 from .openai_helpers import generate_study_guide as openai_generate_study_guide
 from .openai_helpers import generate_quiz as openai_generate_quiz
 from .transcription import get_youtube_transcript, transcribe_audio
+from .file_processor import process_file
 import logging
 import os
+import io
 
 # Import free AI helpers as fallbacks
 from .free_ai_helpers import get_summary as free_get_summary
@@ -93,8 +95,8 @@ def process_input(input_type, input_content):
     Process the user input and generate study materials.
     
     Args:
-        input_type (str): The type of input ('text', 'youtube', or 'audio')
-        input_content: The actual content (text, YouTube URL, or audio file)
+        input_type (str): The type of input ('text', 'youtube', 'audio', or 'file')
+        input_content: The actual content (text, YouTube URL, audio file, or uploaded file)
         
     Returns:
         dict: Dictionary with all generated study materials and success status
@@ -139,7 +141,47 @@ def process_input(input_type, input_content):
             else:
                 logger.error(f"Failed to transcribe audio: {transcript_result['error']}")
                 return {"success": False, "error": transcript_result["error"]}
-        
+                
+        elif input_type == "file":
+            logger.info(f"Processing file: {input_content.name}")
+            # Check if it's a video file that needs audio extraction
+            file_extension = input_content.name.split('.')[-1].lower()
+            
+            if file_extension in ['mp4', 'mov', 'avi', 'mkv']:
+                logger.info("Processing video file for audio extraction")
+                video_result = process_file(input_content)
+                
+                if video_result["success"] and "audio_file" in video_result:
+                    logger.info("Successfully extracted audio from video, transcribing...")
+                    # Now transcribe the extracted audio
+                    transcript_result = transcribe_audio(video_result["audio_file"])
+                    
+                    if transcript_result["success"]:
+                        logger.info("Successfully transcribed audio from video")
+                        result["transcript"] = transcript_result["transcript"]
+                        result["success"] = True
+                    else:
+                        logger.error(f"Failed to transcribe audio from video: {transcript_result['error']}")
+                        return {"success": False, "error": transcript_result["error"]}
+                else:
+                    logger.error(f"Failed to process video file: {video_result.get('error', 'Unknown error')}")
+                    return {"success": False, "error": video_result.get("error", "Failed to process video file")}
+            else:
+                # For all other file types, extract text content
+                file_result = process_file(input_content)
+                
+                if file_result["success"]:
+                    logger.info(f"Successfully processed file")
+                    result["transcript"] = file_result["text"]
+                    result["success"] = True
+                    
+                    # If it's a ZIP file, add a note about processing multiple files
+                    if file_extension == 'zip' and 'file_count' in file_result:
+                        logger.info(f"Processed {file_result['file_count']} files from ZIP archive")
+                        result["transcript"] = f"[Processed {file_result['file_count']} files from ZIP archive]\n\n" + result["transcript"]
+                else:
+                    logger.error(f"Failed to process file: {file_result.get('error', 'Unknown error')}")
+                    return {"success": False, "error": file_result.get("error", "Failed to process file")}
         else:
             logger.error(f"Invalid input type: {input_type}")
             return {"success": False, "error": "Invalid input type"}

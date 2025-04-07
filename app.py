@@ -61,7 +61,7 @@ if not st.session_state.processing_complete:
     # Input options
     st.subheader("Choose Your Input Method")
     
-    tab1, tab2, tab3 = st.tabs(["✏️ Enter Topic", "🔗 YouTube URL", "🔊 Upload Audio"])
+    tab1, tab2, tab3, tab4 = st.tabs(["✏️ Enter Topic", "🔗 YouTube URL", "🔊 Upload Audio", "📄 Upload Files"])
     
     with tab1:
         text_input = st.text_area("Enter a topic or paste lecture text:", height=150, 
@@ -120,6 +120,66 @@ if not st.session_state.processing_complete:
                     st.error(f"Error: {results['error']}")
         elif audio_submit:
             st.warning("Please upload an audio file first.")
+            
+    with tab4:
+        st.write("Upload lecture notes, course materials, or multiple files for processing:")
+        
+        file_type_options = [
+            "Document (.pdf, .docx, .pptx)",
+            "Video (.mp4, .mov)",
+            "Code (.py, .ipynb)",
+            "Multiple Files (.zip)"
+        ]
+        
+        file_type_choice = st.radio("Select file type:", file_type_options)
+        
+        # Set the file types based on the user's selection
+        if "Document" in file_type_choice:
+            allowed_types = ["pdf", "docx", "pptx"]
+            upload_label = "Upload document files:"
+        elif "Video" in file_type_choice:
+            allowed_types = ["mp4", "mov", "avi", "mkv"]
+            upload_label = "Upload video file (will extract audio):"
+        elif "Code" in file_type_choice:
+            allowed_types = ["py", "ipynb", "txt"]
+            upload_label = "Upload code or text files:"
+        elif "Multiple" in file_type_choice:
+            allowed_types = ["zip"]
+            upload_label = "Upload ZIP archive (containing multiple files):"
+        
+        uploaded_file = st.file_uploader(upload_label, type=allowed_types)
+        
+        file_submit = st.button("Generate Study Kit", key="file_submit")
+        
+        if file_submit and uploaded_file is not None:
+            st.session_state.processing = True
+            
+            # Determine file extension
+            file_extension = uploaded_file.name.split('.')[-1].lower()
+            
+            with st.spinner(f"Processing {file_extension.upper()} file..."):
+                # Process file with appropriate message
+                if file_extension == "zip":
+                    status_message = "Extracting and processing files from ZIP archive..."
+                elif file_extension in ["mp4", "mov", "avi", "mkv"]:
+                    status_message = "Extracting audio from video and transcribing..."
+                elif file_extension in ["docx", "pptx", "pdf"]:
+                    status_message = f"Extracting text from {file_extension.upper()} document..."
+                else:
+                    status_message = f"Processing {file_extension.upper()} file..."
+                
+                st.info(status_message)
+                results = process_input("file", uploaded_file)
+                
+                if results["success"]:
+                    st.session_state.results = results
+                    st.session_state.processing_complete = True
+                    st.rerun()
+                else:
+                    st.session_state.error = results["error"]
+                    st.error(f"Error: {results['error']}")
+        elif file_submit:
+            st.warning("Please upload a file first.")
 
 else:
     # Display results
