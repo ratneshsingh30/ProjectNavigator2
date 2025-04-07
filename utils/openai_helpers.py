@@ -22,18 +22,21 @@ def get_summary(text, max_bullets=7):
     """
     try:
         prompt = f"""
-        Create a comprehensive summary of the key concepts and important information from the following text:
+        Create a comprehensive, structured summary of the key concepts from the following text:
 
         {text}
         
-        Your summary should:
-        1. Identify and emphasize the most important concepts (maximum {max_bullets} main points)
-        2. Organize information hierarchically with main points and sub-points where appropriate
-        3. Use clear, concise bullet points (• for main points, - for sub-points)
-        4. Highlight key terms or technical concepts in BOLD format using markdown (**term**)
-        5. Ensure coverage of all critical information while eliminating redundancy
+        Structure your response with:
+        1. Major headings using markdown format (## Heading)
+        2. Under each heading, provide:
+           - A clear definition or explanation (1-2 sentences)
+           - Key points organized as bullet points (• for main points, - for sub-points)
+           - Important terms in **bold** 
+           - At least one example for each concept when available
+           - If diagrams were described in the text, note with [DIAGRAM: brief description]
         
-        Format the output as a structured, hierarchical list of bullet points.
+        Include no more than {max_bullets} major headings to maintain focus on the most critical concepts.
+        Use markdown formatting throughout for clear, structured presentation.
         """
 
         response = client.chat.completions.create(
@@ -61,31 +64,27 @@ def get_resources(topic, max_resources=3):
     """
     try:
         prompt = f"""
-        Find {max_resources} high-quality resources on the topic: "{topic}"
+        Create {max_resources} reliable educational resources on the topic: "{topic}"
         
-        Provide ONLY real, reliable resources from these sources:
-        - Khan Academy (khanacademy.org)
-        - Coursera (coursera.org)
-        - edX (edx.org)
-        - MIT OpenCourseWare (ocw.mit.edu)
-        - Stanford Online (online.stanford.edu)
-        - Harvard Online Learning (online-learning.harvard.edu)
-        - YouTube Educational channels (youtube.com)
-        - TED Talks (ted.com)
-        
-        For each resource, provide:
-        1. A specific, accurate title
-        2. A detailed description (1-2 sentences)
-        3. A valid URL to the actual resource (must be from one of the domains listed above)
+        For each resource, create:
+        1. A descriptive title that accurately reflects the content
+        2. A detailed description (1-2 sentences) explaining what the learner will gain
+        3. The source website (using only these domains: youtube.com, khanacademy.org, coursera.org, edx.org, mit.edu, stanford.edu, harvard.edu, ted.com)
         4. The type of resource (video, course, article, etc.)
+        
+        Format each resource as a search URL that would lead to relevant content.
+        For example:
+        - YouTube: https://www.youtube.com/results?search_query=machine+learning+for+beginners
+        - Khan Academy: https://www.khanacademy.org/search?page_search_query=linear+algebra+basics
+        - Coursera: https://www.coursera.org/search?query=data+science+certification
         
         Return the information in JSON format with this structure:
         {{
             "resources": [
                 {{
-                    "title": "Specific Resource Title",
+                    "title": "Descriptive Resource Title",
                     "description": "Detailed description of what this resource covers",
-                    "url": "https://actual-website.org/actual-resource",
+                    "url": "https://search-url-for-this-topic",
                     "type": "Type of resource (video, course, article, etc.)"
                 }}
             ]

@@ -129,13 +129,17 @@ def get_summary(text, max_bullets=7):
         truncated_text = text[:10000] + "..." if len(text) > 10000 else text
         
         prompt = (
-            f"Create a comprehensive summary of the key concepts from the following text:\n\n"
+            f"Create a structured summary of key concepts from this text:\n\n"
             f"{truncated_text}\n\n"
-            f"Your summary should:\n"
-            f"1. Identify the most important concepts (maximum {max_bullets} main points)\n"
-            f"2. Use bullet points with main points and sub-points where needed\n"
-            f"3. Highlight key terms in bold format using **term** markdown syntax\n"
-            f"4. Cover all critical information without redundancy"
+            f"Structure your response with:\n"
+            f"1. Major headings using markdown format (## Heading)\n"
+            f"2. Under each heading, provide:\n"
+            f"   - A clear definition or explanation\n"
+            f"   - Key points as bullet points\n" 
+            f"   - Important terms in **bold**\n"
+            f"   - At least one example for each concept\n"
+            f"   - If diagrams were described, add [DIAGRAM: brief description]\n\n"
+            f"Include max {max_bullets} major headings. Use markdown formatting throughout."
         )
         
         # Try to get summary from free API
@@ -146,11 +150,73 @@ def get_summary(text, max_bullets=7):
             summary_text = generated_text.strip()
             return {"success": True, "summary": summary_text}
         else:
-            # Fallback to a very simple summary if all APIs fail
-            sentences = truncated_text.split('. ')
-            simple_summary = ". ".join(sentences[:max_bullets]) + "."
-            logger.warning("Using fallback simple summary method")
-            return {"success": True, "summary": simple_summary}
+            # Create a more structured fallback summary if all APIs fail
+            logger.warning("Using fallback structured summary method")
+            
+            # Extract sentences and organize by potential topics
+            sentences = re.split(r'(?<=[.!?])\s+', truncated_text)
+            
+            # Find capitalized phrases that might be topics or key terms
+            topics = []
+            key_terms = []
+            
+            for sentence in sentences:
+                # Look for capitalized multi-word phrases that might be topics
+                topic_matches = re.findall(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})', sentence)
+                topics.extend(topic_matches)
+                
+                # Look for capitalized terms that might be key terms
+                term_matches = re.findall(r'\b([A-Z][a-z]{3,})\b', sentence)
+                key_terms.extend(term_matches)
+            
+            # Get unique topics and terms
+            topics = list(set(topics))[:max_bullets]
+            key_terms = list(set(key_terms))
+            
+            # Build structured summary
+            structured_summary = "# Key Concepts Summary\n\n"
+            
+            # Add topics as sections
+            for i, topic in enumerate(topics[:max_bullets]):
+                # Create heading
+                structured_summary += f"## {topic}\n\n"
+                
+                # Add definition - find sentences containing the topic
+                topic_sentences = [s for s in sentences if topic in s]
+                if topic_sentences:
+                    structured_summary += f"{topic_sentences[0]}\n\n"
+                
+                # Add bullet points - use nearby sentences
+                structured_summary += "Key points:\n\n"
+                bullet_count = min(3, len(topic_sentences) - 1)
+                for j in range(bullet_count):
+                    idx = min(j + 1, len(topic_sentences) - 1)
+                    point = topic_sentences[idx]
+                    # Highlight any key terms
+                    for term in key_terms:
+                        if term in point:
+                            point = point.replace(term, f"**{term}**")
+                    structured_summary += f"• {point}\n"
+                structured_summary += "\n"
+            
+            # If no topics were found, use generic headings
+            if not topics:
+                chunk_size = len(sentences) // max_bullets
+                for i in range(min(max_bullets, len(sentences) // 5)):
+                    start_idx = i * chunk_size
+                    end_idx = min(start_idx + chunk_size, len(sentences))
+                    chunk = sentences[start_idx:end_idx]
+                    
+                    structured_summary += f"## Topic {i+1}\n\n"
+                    if chunk:
+                        structured_summary += f"{chunk[0]}\n\n"
+                        structured_summary += "Key points:\n\n"
+                        for j in range(min(3, len(chunk) - 1)):
+                            point = chunk[j + 1]
+                            structured_summary += f"• {point}\n"
+                    structured_summary += "\n"
+            
+            return {"success": True, "summary": structured_summary}
     
     except Exception as e:
         return {"success": False, "error": f"Error generating summary: {str(e)}"}
