@@ -12,15 +12,19 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Check if OpenAI API key is available
-if not os.environ.get("OPENAI_API_KEY"):
-    st.error("⚠️ OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
-    st.stop()
-
 # Set up logging for debugging
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Check if OpenAI API key is available and provide info about alternatives
+openai_api_key = os.environ.get("OPENAI_API_KEY")
+
+if not openai_api_key:
+    st.warning("⚠️ OpenAI API key not found. Using free AI APIs as fallback for generating study materials.")
+    logger.warning("OpenAI API key not found. Will use free AI APIs.")
+else:
+    logger.info("OpenAI API key found. Will try OpenAI first, with free AI APIs as fallback.")
 
 # Function to check if URL is a valid YouTube URL
 def is_youtube_url(url):
@@ -264,4 +268,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("🎓 **AI Study Assistant** | Made with ❤️ using Streamlit and OpenAI")
+st.markdown("🎓 **AI Study Assistant** | Made with ❤️ using Streamlit and AI APIs")

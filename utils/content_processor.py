@@ -1,9 +1,92 @@
-from .openai_helpers import get_summary, get_resources, generate_study_guide, generate_quiz
+from .openai_helpers import get_summary as openai_get_summary
+from .openai_helpers import get_resources as openai_get_resources
+from .openai_helpers import generate_study_guide as openai_generate_study_guide
+from .openai_helpers import generate_quiz as openai_generate_quiz
 from .transcription import get_youtube_transcript, transcribe_audio
 import logging
+import os
+
+# Import free AI helpers as fallbacks
+from .free_ai_helpers import get_summary as free_get_summary
+from .free_ai_helpers import get_resources as free_get_resources
+from .free_ai_helpers import generate_study_guide as free_generate_study_guide
+from .free_ai_helpers import generate_quiz as free_generate_quiz
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+# Define fallback wrapper functions that try OpenAI first, then free APIs
+def get_summary(text, max_bullets=7):
+    """Wrapper that tries OpenAI first, then free AI helper."""
+    try:
+        # Try OpenAI first
+        logger.info("Trying OpenAI for summary")
+        result = openai_get_summary(text, max_bullets)
+        if result["success"]:
+            return result
+        
+        # If OpenAI fails, try free AI helper
+        logger.info("OpenAI failed, trying free AI for summary")
+        result = free_get_summary(text, max_bullets)
+        return result
+    except Exception as e:
+        logger.exception(f"Error in get_summary fallback: {str(e)}")
+        # If all else fails, try free API directly
+        return free_get_summary(text, max_bullets)
+
+def get_resources(topic, max_resources=3):
+    """Wrapper that tries OpenAI first, then free AI helper."""
+    try:
+        # Try OpenAI first
+        logger.info("Trying OpenAI for resources")
+        result = openai_get_resources(topic, max_resources)
+        if result["success"]:
+            return result
+        
+        # If OpenAI fails, try free AI helper
+        logger.info("OpenAI failed, trying free AI for resources")
+        result = free_get_resources(topic, max_resources)
+        return result
+    except Exception as e:
+        logger.exception(f"Error in get_resources fallback: {str(e)}")
+        # If all else fails, try free API directly
+        return free_get_resources(topic, max_resources)
+
+def generate_study_guide(text):
+    """Wrapper that tries OpenAI first, then free AI helper."""
+    try:
+        # Try OpenAI first
+        logger.info("Trying OpenAI for study guide")
+        result = openai_generate_study_guide(text)
+        if result["success"]:
+            return result
+        
+        # If OpenAI fails, try free AI helper
+        logger.info("OpenAI failed, trying free AI for study guide")
+        result = free_generate_study_guide(text)
+        return result
+    except Exception as e:
+        logger.exception(f"Error in generate_study_guide fallback: {str(e)}")
+        # If all else fails, try free API directly
+        return free_generate_study_guide(text)
+
+def generate_quiz(text, num_questions=5):
+    """Wrapper that tries OpenAI first, then free AI helper."""
+    try:
+        # Try OpenAI first
+        logger.info("Trying OpenAI for quiz")
+        result = openai_generate_quiz(text, num_questions)
+        if result["success"]:
+            return result
+        
+        # If OpenAI fails, try free AI helper
+        logger.info("OpenAI failed, trying free AI for quiz")
+        result = free_generate_quiz(text, num_questions)
+        return result
+    except Exception as e:
+        logger.exception(f"Error in generate_quiz fallback: {str(e)}")
+        # If all else fails, try free API directly
+        return free_generate_quiz(text, num_questions)
 
 def process_input(input_type, input_content):
     """
