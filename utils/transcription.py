@@ -2,12 +2,13 @@ import os
 import tempfile
 import requests
 from youtube_transcript_api import YouTubeTranscriptApi
-from openai import OpenAI
 import re
+from faster_whisper import WhisperModel
 
-# Initialize OpenAI client
-openai_api_key = os.environ.get("OPENAI_API_KEY")
-client = OpenAI(api_key=openai_api_key)
+# Initialize Whisper model
+# Options for model size: "tiny", "base", "small", "medium", "large-v2"
+model_size = "base"
+whisper_model = WhisperModel(model_size, device="cpu", compute_type="int8")
 
 def extract_youtube_id(url):
     """Extract YouTube video ID from a URL."""
@@ -61,7 +62,7 @@ def get_youtube_transcript(youtube_url):
         return {"success": False, "error": f"Error getting YouTube transcript: {str(e)}"}
 
 def transcribe_audio(audio_file):
-    """Transcribe audio file using OpenAI's Whisper API."""
+    """Transcribe audio file using Hugging Face's faster-whisper implementation."""
     try:
         # Create a temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
@@ -69,17 +70,18 @@ def transcribe_audio(audio_file):
             temp_file.write(audio_file.getvalue())
             temp_path = temp_file.name
         
-        # Transcribe the audio file
-        with open(temp_path, "rb") as audio:
-            transcription = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio
-            )
+        # Transcribe the audio file with faster-whisper
+        segments, info = whisper_model.transcribe(temp_path, beam_size=5)
+        
+        # Combine all segments into a full transcript
+        transcription_text = ""
+        for segment in segments:
+            transcription_text += segment.text + " "
         
         # Clean up the temporary file
         os.unlink(temp_path)
         
-        return {"success": True, "transcript": transcription.text}
+        return {"success": True, "transcript": transcription_text.strip()}
     
     except Exception as e:
         # Clean up the temporary file if it exists
