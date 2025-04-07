@@ -391,7 +391,43 @@ else:
         st.error(f"Error displaying quiz: {str(e)}")
         st.info("No quiz available.")
     
-    # Section 5: Personalized Insights
+    # Section 5: Detailed Notes with Examples
+    st.header("📔 Detailed Topic Notes")
+    
+    try:
+        if results and "detailed_notes" in results and results["detailed_notes"]:
+            # Try to get the detailed notes data safely
+            notes_data = results["detailed_notes"].get("notes", []) if isinstance(results["detailed_notes"], dict) else []
+            
+            # Verify we have notes sections
+            if notes_data and isinstance(notes_data, list) and len(notes_data) > 0:
+                for section in notes_data:
+                    if isinstance(section, dict) and "title" in section:
+                        with st.expander(f"📌 {section['title']}", expanded=True):
+                            # Display key points in bold
+                            if "key_points" in section and section["key_points"]:
+                                st.subheader("Key Points:")
+                                for point in section["key_points"]:
+                                    st.markdown(f"**{point}**")
+                                st.write("---")
+                            
+                            # Display content
+                            if "content" in section and section["content"]:
+                                st.write(section["content"])
+                            
+                            # Display example
+                            if "example" in section and section["example"]:
+                                st.subheader("Example:")
+                                st.info(section["example"])
+            else:
+                st.info("No detailed notes available.")
+        else:
+            st.info("No detailed notes available.")
+    except Exception as e:
+        st.error(f"Error displaying detailed notes: {str(e)}")
+        st.info("No detailed notes available.")
+    
+    # Section 6: Personalized Insights
     st.header("👤 Personalized Insights (Optional)")
     
     # Check if we already have generated insights

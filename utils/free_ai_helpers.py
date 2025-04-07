@@ -133,13 +133,37 @@ def get_resources(topic, max_resources=3):
             resources = []
             resource_types = ["Article", "Video", "Book"]
             
-            for i in range(min(max_resources, 3)):
-                resources.append({
-                    "title": f"Resource for {topic} - {i+1}",
-                    "type": resource_types[i % len(resource_types)],
-                    "description": f"A resource about {topic}.",
-                    "url": f"https://en.wikipedia.org/wiki/{topic.replace(' ', '_')}"
-                })
+            # Use more reliable URLs and better resource descriptions when AI fails
+            reliable_sources = [
+                {
+                    "title": f"Khan Academy: {topic}",
+                    "type": "Learning Platform",
+                    "description": f"Khan Academy offers free educational resources on {topic} with video lessons, practice exercises, and a personalized learning dashboard.",
+                    "url": "https://www.khanacademy.org/search?referer=%2F&page_search_query=" + topic.replace(' ', '+')
+                },
+                {
+                    "title": f"Coursera Courses on {topic}",
+                    "type": "Online Courses",
+                    "description": f"Find university-level courses on {topic} from top institutions, many of which offer free auditing options.",
+                    "url": "https://www.coursera.org/search?query=" + topic.replace(' ', '+')
+                },
+                {
+                    "title": f"{topic} on MIT OpenCourseWare",
+                    "type": "Academic Resource",
+                    "description": f"MIT OpenCourseWare offers free lecture notes, videos, and assignments from actual MIT courses related to {topic}.",
+                    "url": "https://ocw.mit.edu/search/?q=" + topic.replace(' ', '+')
+                },
+                {
+                    "title": f"{topic} - Learning Resources",
+                    "type": "Educational Websites",
+                    "description": f"Educational resources focusing on {topic} from multiple sources, with tutorials, guides, and interactive learning materials.",
+                    "url": "https://www.google.com/search?q=" + topic.replace(' ', '+') + "+learning+resources"
+                }
+            ]
+            
+            # Include as many resources as requested, up to what we have available
+            for i in range(min(max_resources, len(reliable_sources))):
+                resources.append(reliable_sources[i])
             
             return {"success": True, "resources": {"resources": resources}}
             
@@ -197,6 +221,157 @@ def get_resources(topic, max_resources=3):
         logger.exception(f"Error generating resources: {str(e)}")
         return {"success": False, "error": f"Error generating resources: {str(e)}"}
         
+def generate_detailed_notes(text, max_sections=3):
+    """
+    Generate detailed notes with key points highlighted in bold.
+    
+    Args:
+        text (str): The text to generate notes from
+        max_sections (int): Maximum number of topic sections to include
+        
+    Returns:
+        dict: Dictionary with success status and either notes or error message
+    """
+    try:
+        # Truncate long inputs
+        truncated_text = text[:10000] + "..." if len(text) > 10000 else text
+        
+        prompt = (
+            f"Create detailed study notes on this content with {max_sections} main topic sections. "
+            f"For each section include: a title, 3-5 key points in bold formatting (**key point**), "
+            f"explanatory paragraphs, and at least one specific example. "
+            f"Use markdown formatting:\n\n{truncated_text}"
+        )
+        
+        # Try to get notes from free API
+        generated_text = make_api_request(prompt)
+        
+        if not generated_text:
+            # Create basic notes from the text if API fails
+            sections = []
+            sentences = re.split(r'(?<=[.!?])\s+', truncated_text)
+            
+            # Try to identify potential section topics
+            potential_topics = []
+            for i, sentence in enumerate(sentences):
+                if len(sentence.split()) <= 10 and len(sentence.split()) >= 3:
+                    # Short sentences might be headings/topics
+                    if i < len(sentences) - 5:  # Ensure there's content after
+                        potential_topics.append((i, sentence))
+            
+            # If we don't find potential topics, create artificial ones
+            if not potential_topics or len(potential_topics) < max_sections:
+                chunks = [sentences[i:i + len(sentences)//max_sections] for i in range(0, len(sentences), len(sentences)//max_sections)]
+                for i, chunk in enumerate(chunks[:max_sections]):
+                    if chunk:
+                        # Extract key words for a topic
+                        all_words = " ".join(chunk).split()
+                        topic_words = [w for w in all_words if len(w) > 4 and w[0].isupper()]
+                        
+                        # Create a topic title
+                        if topic_words and len(topic_words) >= 2:
+                            topic = " ".join(topic_words[:2])
+                        else:
+                            topic = f"Topic {i+1}"
+                            
+                        # Find key points (longer sentences)
+                        key_points = []
+                        for sentence in chunk:
+                            if len(sentence.split()) >= 8:
+                                key_points.append(sentence)
+                            if len(key_points) >= 3:
+                                break
+                        
+                        # Build content with the remaining sentences
+                        remaining = [s for s in chunk if s not in key_points]
+                        content = " ".join(remaining[:5])  # First few sentences
+                        
+                        # Create an example
+                        example = "For example, " + (remaining[-1] if remaining else key_points[0])
+                        
+                        # Add the section
+                        sections.append({
+                            "title": topic,
+                            "key_points": key_points[:3],
+                            "content": content,
+                            "example": example
+                        })
+            
+            return {"success": True, "notes": sections}
+        
+        # Try to parse the generated text into sections
+        sections = []
+        
+        # Split by markdown headers (## or # headers)
+        section_texts = re.split(r'(?m)^#+\s+(.+?)$', generated_text)
+        
+        # Process each section
+        current_title = None
+        for i, text_block in enumerate(section_texts):
+            if i % 2 == 0 and i > 0:  # Even indexes after 0 are content blocks
+                # Extract key points (bolded text)
+                key_points = re.findall(r'\*\*(.+?)\*\*', text_block)
+                
+                # Extract an example if present
+                example_match = re.search(r'(?:Example|For example|For instance)[:\s]+(.*?)(?=(?:\n\n)|$)', text_block, re.IGNORECASE | re.DOTALL)
+                example = example_match.group(1).strip() if example_match else "No specific example provided."
+                
+                # Remove the key points and example from content
+                content = text_block
+                for point in key_points:
+                    content = content.replace(f"**{point}**", "")
+                if example_match:
+                    content = content.replace(example_match.group(0), "")
+                
+                # Clean up content
+                content = re.sub(r'\n{3,}', '\n\n', content.strip())
+                
+                # Add the section
+                sections.append({
+                    "title": current_title,
+                    "key_points": key_points,
+                    "content": content,
+                    "example": example
+                })
+            elif i % 2 == 1:  # Odd indexes are section titles
+                current_title = text_block.strip()
+        
+        # If no sections were extracted, use a simple approach
+        if not sections:
+            paragraphs = generated_text.split('\n\n')
+            for i, para in enumerate(paragraphs[:max_sections]):
+                if para.strip():
+                    # Try to find a title in the paragraph
+                    first_line = para.split('\n')[0].strip()
+                    title = first_line if len(first_line.split()) <= 7 else f"Topic {i+1}"
+                    
+                    # Find key sentences (ones with key terms)
+                    sentences = re.split(r'(?<=[.!?])\s+', para)
+                    key_sentences = []
+                    for sentence in sentences:
+                        if "key" in sentence.lower() or "important" in sentence.lower() or "critical" in sentence.lower():
+                            key_sentences.append(sentence)
+                        if len(key_sentences) >= 3:
+                            break
+                    
+                    # If no key sentences found, use the longest ones
+                    if not key_sentences:
+                        key_sentences = sorted(sentences, key=len, reverse=True)[:3]
+                    
+                    # Add the section
+                    sections.append({
+                        "title": title,
+                        "key_points": key_sentences,
+                        "content": para,
+                        "example": "Example: " + (sentences[-1] if sentences else "No specific example available.")
+                    })
+        
+        return {"success": True, "notes": sections}
+        
+    except Exception as e:
+        logger.exception(f"Error generating detailed notes: {str(e)}")
+        return {"success": False, "error": f"Error generating detailed notes: {str(e)}"}
+
 def generate_study_guide(text):
     """
     Generate a study guide with definitions, key terms, and flashcards using free AI APIs.

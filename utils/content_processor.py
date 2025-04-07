@@ -13,6 +13,7 @@ from .free_ai_helpers import get_summary as free_get_summary
 from .free_ai_helpers import get_resources as free_get_resources
 from .free_ai_helpers import generate_study_guide as free_generate_study_guide
 from .free_ai_helpers import generate_quiz as free_generate_quiz
+from .free_ai_helpers import generate_detailed_notes
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -90,6 +91,19 @@ def generate_quiz(text, num_questions=5):
         # If all else fails, try free API directly
         return free_generate_quiz(text, num_questions)
 
+def generate_topic_notes(text, max_sections=3):
+    """Generate detailed notes for each topic with key points in bold and examples."""
+    try:
+        logger.info("Generating detailed topic notes")
+        # No OpenAI version yet, just use the free AI helper
+        result = generate_detailed_notes(text, max_sections)
+        if not result["success"]:
+            logger.error(f"Failed to generate detailed notes: {result.get('error', 'Unknown error')}")
+        return result
+    except Exception as e:
+        logger.exception(f"Error in generate_topic_notes: {str(e)}")
+        return {"success": False, "error": f"Error generating detailed notes: {str(e)}"}
+
 def process_input(input_type, input_content):
     """
     Process the user input and generate study materials.
@@ -110,6 +124,7 @@ def process_input(input_type, input_content):
         "resources": None,
         "study_guide": None,
         "quiz": None,
+        "detailed_notes": None,
         "error": None
     }
     
@@ -236,6 +251,17 @@ def process_input(input_type, input_content):
                 result["error"] = quiz_result["error"]
                 return result
             
+            # Step 6: Generate detailed notes with examples
+            logger.info("Generating detailed topic notes")
+            notes_result = generate_topic_notes(result["transcript"])
+            if notes_result["success"]:
+                logger.info("Detailed notes generated successfully")
+                result["detailed_notes"] = {"notes": notes_result["notes"]}
+            else:
+                logger.error(f"Failed to generate detailed notes: {notes_result['error']}")
+                # Don't return error here, as this is a bonus feature
+                # Just continue without detailed notes
+                
             logger.info("All processing completed successfully")
             result["success"] = True
             return result
