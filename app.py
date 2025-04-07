@@ -2,6 +2,7 @@ import streamlit as st
 import re
 import os
 from utils.content_processor import process_input
+from utils.export_utils import create_export_section
 import json
 
 # Set custom theme and styling
@@ -642,6 +643,10 @@ else:
                         st.rerun()
                     else:
                         st.error(f"Error generating personalized insights: {insights_result['error']}")
+    
+    # Add export functionality
+    if results:
+        create_export_section(results)
     
     # Add another reset button at the bottom
     if st.button("Start Over", key="reset_bottom"):
