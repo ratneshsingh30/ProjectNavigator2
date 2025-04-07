@@ -225,3 +225,57 @@ def generate_quiz(text, num_questions=5):
     
     except Exception as e:
         return {"success": False, "error": f"Error generating quiz: {str(e)}"}
+
+def generate_personalized_insights(prompt_text):
+    """
+    Generate personalized insights based on a user's profile and study content.
+    
+    Args:
+        prompt_text (str): The full prompt containing resume, LinkedIn, and study content
+        
+    Returns:
+        dict: Dictionary with success status and either insights or error message
+    """
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": prompt_text}],
+            max_tokens=2000,
+        )
+        
+        insights_text = response.choices[0].message.content
+        
+        # Extract the various sections
+        sections = {
+            "relevance": extract_section(insights_text, "relates to the person's background"),
+            "alignment": extract_section(insights_text, "align with their skills"),
+            "growth_areas": extract_section(insights_text, "Areas for growth"),
+            "applications": extract_section(insights_text, "apply this knowledge"),
+            "learning_path": extract_section(insights_text, "learning path")
+        }
+        
+        return {"success": True, "insights": sections}
+    
+    except Exception as e:
+        return {"success": False, "error": f"Error generating personalized insights: {str(e)}"}
+
+def extract_section(text, section_marker):
+    """Extract a specific section from AI-generated text based on marker phrase"""
+    import re
+    
+    if not text:
+        return "Not available"
+    
+    # Look for the section following the marker
+    pattern = f".*{re.escape(section_marker)}.*?([\\s\\S]+?)(?=\\d\\.|\Z)"
+    match = re.search(pattern, text, re.IGNORECASE)
+    
+    if match:
+        content = match.group(1).strip()
+        return content
+    
+    # If pattern not found, return a segment of text
+    sentences = text.split('.')
+    if len(sentences) > 3:
+        return '. '.join(sentences[:3]).strip() + '.'
+    return text[:200] + "..."

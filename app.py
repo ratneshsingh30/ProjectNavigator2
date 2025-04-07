@@ -17,6 +17,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import personalized insights module
+from utils.personal_insight import process_profile_data
+
 # Check if OpenAI API key is available and provide info about alternatives
 openai_api_key = os.environ.get("OPENAI_API_KEY")
 
@@ -42,6 +45,8 @@ if 'error' not in st.session_state:
     st.session_state.error = None
 if 'show_answers' not in st.session_state:
     st.session_state.show_answers = {}
+if 'personal_insights' not in st.session_state:
+    st.session_state.personal_insights = None
 
 def reset_app():
     """Reset the app to its initial state"""
@@ -50,6 +55,7 @@ def reset_app():
     st.session_state.processing = False
     st.session_state.error = None
     st.session_state.show_answers = {}
+    st.session_state.personal_insights = None
     st.rerun()
 
 # Header section
@@ -321,6 +327,64 @@ else:
                 st.rerun()
     else:
         st.info("No quiz available.")
+    
+    # Section 5: Personalized Insights
+    st.header("👤 Personalized Insights (Optional)")
+    
+    # Check if we already have generated insights
+    if st.session_state.personal_insights:
+        # Display the insights
+        insights = st.session_state.personal_insights["insights"]
+        
+        st.write("Here are personalized insights based on your professional profile:")
+        
+        with st.expander("🔄 Relevance to Your Background", expanded=True):
+            st.write(insights["relevance"])
+        
+        with st.expander("🎯 Alignment with Your Skills"):
+            st.write(insights["alignment"])
+            
+        with st.expander("📈 Areas for Growth"):
+            st.write(insights["growth_areas"])
+            
+        with st.expander("💡 Practical Applications"):
+            st.write(insights["applications"])
+            
+        with st.expander("🛤️ Personalized Learning Path"):
+            st.write(insights["learning_path"])
+            
+        if st.button("Reset Personalized Insights", key="reset_insights"):
+            st.session_state.personal_insights = None
+            st.rerun()
+    else:
+        # Show form to upload profile data
+        st.write("Upload your resume and/or LinkedIn profile to receive personalized insights about how this topic relates to your background and career path.")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            resume_file = st.file_uploader("Upload your resume (PDF/DOCX):", type=["pdf", "docx"], key="resume_upload")
+        
+        with col2:
+            linkedin_file = st.file_uploader("Upload your LinkedIn profile (PDF/DOCX/TXT):", type=["pdf", "docx", "txt"], key="linkedin_upload")
+        
+        if st.button("Generate Personalized Insights", key="generate_insights"):
+            if resume_file is None and linkedin_file is None:
+                st.warning("Please upload at least one file (resume or LinkedIn profile).")
+            else:
+                with st.spinner("Analyzing your profile and generating personalized insights..."):
+                    # Get the study content from the results
+                    study_content = results["transcript"] if results["transcript"] else ""
+                    
+                    # Generate personalized insights
+                    insights_result = process_profile_data(resume_file, linkedin_file, study_content)
+                    
+                    if insights_result["success"]:
+                        st.session_state.personal_insights = insights_result
+                        st.success("Personalized insights generated!")
+                        st.rerun()
+                    else:
+                        st.error(f"Error generating personalized insights: {insights_result['error']}")
     
     # Add another reset button at the bottom
     if st.button("Start Over", key="reset_bottom"):

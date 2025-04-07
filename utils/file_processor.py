@@ -7,7 +7,13 @@ import nbformat
 from pptx import Presentation
 from docx import Document
 from PyPDF2 import PdfReader
-from moviepy.editor import VideoFileClip
+# Try to import moviepy with error handling
+try:
+    import moviepy.editor
+    from moviepy.editor import VideoFileClip
+    HAS_MOVIEPY = True
+except ImportError:
+    HAS_MOVIEPY = False
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -353,6 +359,13 @@ def process_video_file(video_file):
     Returns:
         dict: Dictionary with success status and the audio file object for transcription
     """
+    # Check if moviepy is available
+    if not HAS_MOVIEPY:
+        return {
+            "success": False, 
+            "error": "Video processing is not available. The moviepy module is not installed correctly."
+        }
+    
     try:
         # Create a temporary file for the video
         with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_video_file:
@@ -364,7 +377,17 @@ def process_video_file(video_file):
         
         # Extract audio from video
         logger.info(f"Extracting audio from video to {audio_path}")
+        
+        # Since we checked HAS_MOVIEPY at the beginning, we know VideoFileClip is available
         video = VideoFileClip(video_path)
+        
+        # Check if audio track exists
+        if video.audio is None:
+            # Clean up temporary file
+            os.unlink(video_path)
+            video.close()
+            return {"success": False, "error": "No audio track found in the video file"}
+        
         video.audio.write_audiofile(audio_path, logger=None)
         
         # Close the video file to release resources
