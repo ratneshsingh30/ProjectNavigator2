@@ -1,0 +1,97 @@
+Slide 1: Clustering
+
+Week 12 – 7th April 2025
+
+Slide 2: Clustering 7 April, 2025 2 Clustering is an unsupervised learning technique that involves grouping data points into clusters based on similarity. Unlike supervised learning, there are no predefined labels, and the goal is to discover natural groupings within the data.
+
+Purpose: The aim is to organize data into clusters so that objects in the same cluster are more similar to each other than to those in other clusters.
+
+Slide 3: Key Concepts in Clustering 7 April, 2025 3 Similarity and Distance Metrics: Euclidean Distance: Often used in methods like K‑Means to calculate the straight-line distance between points. Manhattan Distance: Useful when data dimensions have different scales. Cosine Similarity: Common in text data to assess the similarity between documents.
+
+Slide 4: Euclidian distance 7 April, 2025 4 Euclidean distance is the straight-line distance between 2 data points in a plane.
+
+Slide 5: Manhattan distance 7 April, 2025 5 Manhattan distance, also known as city block distance, or taxicab geometry calculates distance between two data points in a grid-like path.
+
+Slide 6: Cosine distance 7 April, 2025 6 Cosine Distance is derived from the cosine of the angle between two vectors.
+
+Slide 7: Different distances used in ML 7 April, 2025 7
+
+Slide 8: Different distances used in ML 7 April, 2025 8
+
+Slide 9: Key Concepts in Clustering 7 April, 2025 9 Cluster Centers and Boundaries In partitioning methods (e.g., K‑Means), clusters are defined by centroids (mean values) and the boundaries are determined by the distance from these centroids.
+
+Slide 10: Cluster Centers and Boundaries 7 April, 2025 10
+
+Slide 11: Key Concepts in Clustering 7 April, 2025 11 Cluster Centers and Boundaries Hierarchical methods create a tree-like structure (dendrogram) that shows nested clusters without predefined centroids.
+
+Slide 12: Types of clustering techniques 7 April, 2025 12 Partitioning Methods: Example: K‑Means, K‑Medoids Characteristics: Require the number of clusters (k) to be specified. Tend to be efficient on large datasets.
+
+Hierarchical Methods: Example: Agglomerative (bottom-up) and Divisive (top-down) clustering Characteristics: Do not require a pre-specified number of clusters. Provide a dendrogram for visualizing the data’s nested structure.
+
+Slide 13: Types of clustering techniques 7 April, 2025 13 Density-Based Methods: Example: DBSCAN, OPTICS Characteristics: Identify clusters based on high-density areas. Can find arbitrarily shaped clusters and handle noise effectively.
+
+Model-Based Methods: Example: Gaussian Mixture Models (GMM) Characteristics: Assume data is generated from a mixture of underlying probability distributions. Use statistical methods to determine the number of clusters.
+
+Slide 14: Applications of Clustering 7 April, 2025 14 Customer Segmentation: Grouping customers by purchasing behavior, demographics, and other attributes to tailor marketing strategies. Document Classification: Organizing documents into topics or themes, which is especially useful in content management and information retrieval. Image Segmentation: Separating an image into distinct regions for object recognition or scene understanding. Anomaly Detection: Identifying unusual data points that may indicate fraud, system failures, or other irregular activities.
+
+Slide 15: Challenges in Clustering 7 April, 2025 15 Determining the Optimal Number of Clusters: Methods like the Elbow Method or Silhouette Analysis are used, yet choosing the right number remains an art and a science. Scalability: Some clustering algorithms struggle with very large datasets, necessitating efficient implementation or sampling techniques. Evaluation of Clusters: Unlike supervised learning, there is no ground truth. Evaluation metrics such as Inertia (WCSS), Silhouette Score, and Davies-Bouldin Index help assess quality. Handling High-Dimensional Data: High-dimensional spaces can dilute meaningful distances between points, making clustering less effective without dimensionality reduction.
+
+Slide 16: Steps in building k-means clustering 7 April, 2025 16 Step 1: Initialization – Select k random centroids (or use k‑means++ for smarter seeding) Step 2: Assignment – Allocate each data point to the nearest centroid (using Euclidean distance) Step 3: Update – Recalculate centroids as the mean of assigned points Step 4: Iterate until convergence (no significant change in centroids)
+
+Convergence Criteria: Stabilisation of centroids or minimal change in inertia
+
+Slide 17: Evaluation on k-means clustering 17 Key Metrics: Inertia/Within-Cluster Sum of Squares (WCSS)Silhouette Score: Measures how similar an object is to its own cluster versus other clusters The Elbow Method: Visual approach to choosing the optimal k Business Interpretability: How well clusters translate to actionable segments
+
+Slide 18: Choosing number of clusters - Elbow method 18 The elbow method is a graphical method for finding the optimal K value in a k-means clustering algorithm. The elbow graph shows the within-cluster-sum-of-square (WCSS) values on the y-axis corresponding to the different values of K (on the x-axis). The optimal K value is the point at which the graph forms an elbow.
+
+Slide 19: Code example
+
+Week 12 – 7th April 2025
+
+Slide 20: Hierarchical Clustering Fundamentals 20 Definition: Creating a nested hierarchy of clusters Types: Agglomerative* (Bottom-Up): Start with individual data points and merge Divisive (Top-Down): Start with one cluster and split
+
+Advantages: Does not require pre-specifying the number of clusters Provides a visual dendrogram for better interpretability *agglomerative methods are more common
+
+Slide 21: Hierarchical Clustering Fundamentals 21
+
+Slide 22: Steps in building Hierarchical Clusters 22 Agglomerative Steps: Begin with each data point as its own cluster Merge the two closest clusters iteratively Distance Metrics: Euclidean, Manhattan, Cosine (often used for text) Linkage Criteria: Single, Complete, Average, Ward’s Method Dendrogram: Visual representation of the merging process
+
+Slide 23: Linkage 23
+
+Slide 24: Dendrogram structure 24 Leaves (Bottom of the Tree): Each leaf represents an individual text document (in our case, a sample article from the BBC dataset).
+
+📚 Suggested Resources
+Khan Academy: Slide 1: Clustering Week 12 – 7th April 2025 Slide 2: Clustering 7 April, 2025 2 Clustering is an unsupervised learning technique that involves grouping data points into clusters based (Learning Platform)
+
+Khan Academy offers free educational resources on Slide 1: Clustering Week 12 – 7th April 2025 Slide 2: Clustering 7 April, 2025 2 Clustering is an unsupervised learning technique that involves grouping data points into clusters based with video lessons, practice exercises, and a personalized learning dashboard.
+
+Link to resource
+
+Coursera Courses on Slide 1: Clustering Week 12 – 7th April 2025 Slide 2: Clustering 7 April, 2025 2 Clustering is an unsupervised learning technique that involves grouping data points into clusters based (Online Courses)
+
+Slide 1: Clustering Week 12 – 7th April 2025 Slide 2: Clustering 7 April, 2025 2 Clustering is an unsupervised learning technique that involves grouping data points into clusters based on MIT OpenCourseWare (Academic Resource)
+
+📝 Study Guide & Flashcards
+No study guide available.
+
+❓ Practice Quiz
+No quiz available.
+
+📔 Detailed Topic Notes
+No detailed notes available.
+
+👤 Personalized Insights (Optional)
+Upload your resume and/or LinkedIn profile to receive personalized insights about how this topic relates to your background and career path.
+
+Upload your resume (PDF/DOCX):
+
+No file chosen
+Drag and drop file here
+Limit 200MB per file • PDF, DOCX
+Upload your LinkedIn profile (PDF/DOCX/TXT):
+
+No file chosen
+Drag and drop file here
+Limit 200MB per file • PDF, DOCX, TXT
+
+
