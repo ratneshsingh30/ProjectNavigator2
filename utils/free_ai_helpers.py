@@ -9,6 +9,49 @@ import re
 # Set up logging
 logger = logging.getLogger(__name__)
 
+def get_reliable_url(topic, resource_type="Article"):
+    """
+    Generate a reliable URL for a given topic and resource type.
+    
+    Args:
+        topic (str): The topic to generate a URL for
+        resource_type (str): The type of resource (Article, Video, Course, etc.)
+        
+    Returns:
+        str: A reliable URL to an educational resource
+    """
+    topic_formatted = topic.replace(' ', '-').lower()
+    
+    # Map of reliable educational websites by resource type
+    url_templates = {
+        "Video": [
+            f"https://www.youtube.com/results?search_query={topic.replace(' ', '+')}+lecture",
+            f"https://www.khanacademy.org/search?page_search_query={topic.replace(' ', '+')}",
+            f"https://ed.ted.com/search?qs={topic.replace(' ', '+')}"
+        ],
+        "Course": [
+            f"https://www.coursera.org/search?query={topic.replace(' ', '+')}",
+            f"https://www.edx.org/search?q={topic.replace(' ', '+')}",
+            f"https://ocw.mit.edu/search/?q={topic.replace(' ', '+')}"
+        ],
+        "Article": [
+            f"https://en.wikipedia.org/wiki/{topic.replace(' ', '_')}",
+            f"https://www.khanacademy.org/search?page_search_query={topic.replace(' ', '+')}",
+            f"https://www.britannica.com/search?query={topic.replace(' ', '+')}"
+        ],
+        "Book": [
+            f"https://openlibrary.org/search?q={topic.replace(' ', '+')}",
+            f"https://books.google.com/books?q={topic.replace(' ', '+')}"
+        ]
+    }
+    
+    # Default to Article if resource_type not found
+    if resource_type not in url_templates:
+        resource_type = "Article"
+    
+    # Return a random URL from the appropriate category
+    return random.choice(url_templates[resource_type])
+
 # List of free AI API endpoints
 # These are public endpoints that might have usage limitations but don't require API keys
 FREE_ENDPOINTS = [
@@ -86,8 +129,13 @@ def get_summary(text, max_bullets=7):
         truncated_text = text[:10000] + "..." if len(text) > 10000 else text
         
         prompt = (
-            f"Summarize the following text into {max_bullets} bullet points, "
-            f"highlighting the key concepts:\n\n{truncated_text}"
+            f"Create a comprehensive summary of the key concepts from the following text:\n\n"
+            f"{truncated_text}\n\n"
+            f"Your summary should:\n"
+            f"1. Identify the most important concepts (maximum {max_bullets} main points)\n"
+            f"2. Use bullet points with main points and sub-points where needed\n"
+            f"3. Highlight key terms in bold format using **term** markdown syntax\n"
+            f"4. Cover all critical information without redundancy"
         )
         
         # Try to get summary from free API
@@ -211,7 +259,7 @@ def get_resources(topic, max_resources=3):
                 "title": res.get("title", f"Resource {i+1}"),
                 "type": res.get("type", "Article"),
                 "description": res.get("description", f"A resource about {topic}"),
-                "url": res.get("url", f"https://en.wikipedia.org/wiki/{topic.replace(' ', '_')}")
+                "url": res.get("url", get_reliable_url(topic, res.get("type", "Article")))
             }
             valid_resources.append(valid_resource)
             

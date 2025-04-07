@@ -22,12 +22,18 @@ def get_summary(text, max_bullets=7):
     """
     try:
         prompt = f"""
-        Summarize the following text into {max_bullets} bullet points or fewer. 
-        Focus on the key concepts and important information:
+        Create a comprehensive summary of the key concepts and important information from the following text:
 
         {text}
         
-        Format the output as a list of bullet points, with subtopics where appropriate.
+        Your summary should:
+        1. Identify and emphasize the most important concepts (maximum {max_bullets} main points)
+        2. Organize information hierarchically with main points and sub-points where appropriate
+        3. Use clear, concise bullet points (• for main points, - for sub-points)
+        4. Highlight key terms or technical concepts in BOLD format using markdown (**term**)
+        5. Ensure coverage of all critical information while eliminating redundancy
+        
+        Format the output as a structured, hierarchical list of bullet points.
         """
 
         response = client.chat.completions.create(
@@ -55,23 +61,32 @@ def get_resources(topic, max_resources=3):
     """
     try:
         prompt = f"""
-        Find {max_resources} high-quality resources (video, article, or PDF) on the topic: 
-        "{topic}"
+        Find {max_resources} high-quality resources on the topic: "{topic}"
+        
+        Provide ONLY real, reliable resources from these sources:
+        - Khan Academy (khanacademy.org)
+        - Coursera (coursera.org)
+        - edX (edx.org)
+        - MIT OpenCourseWare (ocw.mit.edu)
+        - Stanford Online (online.stanford.edu)
+        - Harvard Online Learning (online-learning.harvard.edu)
+        - YouTube Educational channels (youtube.com)
+        - TED Talks (ted.com)
         
         For each resource, provide:
-        1. A title
-        2. A description (one sentence)
-        3. A URL (Note: these will be fictitious URLs for demonstration purposes)
-        4. The type of resource (video, article, book, etc.)
+        1. A specific, accurate title
+        2. A detailed description (1-2 sentences)
+        3. A valid URL to the actual resource (must be from one of the domains listed above)
+        4. The type of resource (video, course, article, etc.)
         
         Return the information in JSON format with this structure:
         {{
             "resources": [
                 {{
-                    "title": "Resource Title",
-                    "description": "Brief description of the resource",
-                    "url": "https://example.com",
-                    "type": "Type of resource (video, article, etc.)"
+                    "title": "Specific Resource Title",
+                    "description": "Detailed description of what this resource covers",
+                    "url": "https://actual-website.org/actual-resource",
+                    "type": "Type of resource (video, course, article, etc.)"
                 }}
             ]
         }}
