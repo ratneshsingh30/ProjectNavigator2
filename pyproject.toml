@@ -9,6 +9,7 @@ dependencies = [
     "openai>=1.71.0",
     "speechrecognition>=3.14.2",
     "streamlit>=1.44.1",
+    "trafilatura>=2.0.0",
     "youtube-transcript-api>=1.0.3",
 ]
 

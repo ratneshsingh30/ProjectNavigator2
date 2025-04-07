@@ -65,14 +65,16 @@ def get_resources(topic, max_resources=3):
         4. The type of resource (video, article, book, etc.)
         
         Return the information in JSON format with this structure:
-        [
-            {{
-                "title": "Resource Title",
-                "description": "Brief description of the resource",
-                "url": "https://example.com",
-                "type": "Type of resource (video, article, etc.)"
-            }}
-        ]
+        {{
+            "resources": [
+                {{
+                    "title": "Resource Title",
+                    "description": "Brief description of the resource",
+                    "url": "https://example.com",
+                    "type": "Type of resource (video, article, etc.)"
+                }}
+            ]
+        }}
         """
 
         response = client.chat.completions.create(
@@ -82,8 +84,16 @@ def get_resources(topic, max_resources=3):
             max_tokens=1000,
         )
         
-        resources = json.loads(response.choices[0].message.content)
-        return {"success": True, "resources": resources}
+        try:
+            content = response.choices[0].message.content
+            resources = json.loads(content)
+            # Make sure resources has the expected format
+            if "resources" not in resources:
+                resources = {"resources": resources}
+            return {"success": True, "resources": resources}
+        except json.JSONDecodeError as e:
+            # Fallback for invalid JSON
+            return {"success": False, "error": f"Error parsing JSON response: {str(e)}"}
     
     except Exception as e:
         return {"success": False, "error": f"Error finding resources: {str(e)}"}
@@ -111,18 +121,20 @@ def generate_study_guide(text):
         
         Return the output in this JSON structure:
         {{
-            "key_terms": [
-                {{"term": "Term 1", "definition": "Definition 1"}},
-                {{"term": "Term 2", "definition": "Definition 2"}}
-            ],
-            "important_concepts": [
-                "Concept 1 explanation",
-                "Concept 2 explanation"
-            ],
-            "flashcards": [
-                {{"question": "Question 1?", "answer": "Answer 1"}},
-                {{"question": "Question 2?", "answer": "Answer 2"}}
-            ]
+            "study_guide": {{
+                "key_terms": [
+                    {{"term": "Term 1", "definition": "Definition 1"}},
+                    {{"term": "Term 2", "definition": "Definition 2"}}
+                ],
+                "important_concepts": [
+                    "Concept 1 explanation",
+                    "Concept 2 explanation"
+                ],
+                "flashcards": [
+                    {{"question": "Question 1?", "answer": "Answer 1"}},
+                    {{"question": "Question 2?", "answer": "Answer 2"}}
+                ]
+            }}
         }}
         """
 
@@ -133,8 +145,16 @@ def generate_study_guide(text):
             max_tokens=2000,
         )
         
-        study_guide = json.loads(response.choices[0].message.content)
-        return {"success": True, "study_guide": study_guide}
+        try:
+            content = response.choices[0].message.content
+            result = json.loads(content)
+            # Make sure response has expected format
+            if "study_guide" not in result:
+                result = {"study_guide": result}
+            return {"success": True, "study_guide": result}
+        except json.JSONDecodeError as e:
+            # Fallback for invalid JSON
+            return {"success": False, "error": f"Error parsing JSON response: {str(e)}"}
     
     except Exception as e:
         return {"success": False, "error": f"Error generating study guide: {str(e)}"}
@@ -163,19 +183,21 @@ def generate_quiz(text, num_questions=5):
         4. An explanation of why the answer is correct
         
         Return the questions in this JSON format:
-        [
-            {{
-                "question": "Question text?",
-                "options": {{
-                    "A": "Option A",
-                    "B": "Option B",
-                    "C": "Option C",
-                    "D": "Option D"
-                }},
-                "correct_answer": "A",
-                "explanation": "Explanation of why A is correct"
-            }}
-        ]
+        {{
+            "quiz": [
+                {{
+                    "question": "Question text?",
+                    "options": {{
+                        "A": "Option A",
+                        "B": "Option B",
+                        "C": "Option C",
+                        "D": "Option D"
+                    }},
+                    "correct_answer": "A",
+                    "explanation": "Explanation of why A is correct"
+                }}
+            ]
+        }}
         """
 
         response = client.chat.completions.create(
@@ -185,8 +207,21 @@ def generate_quiz(text, num_questions=5):
             max_tokens=2000,
         )
         
-        quiz = json.loads(response.choices[0].message.content)
-        return {"success": True, "quiz": quiz}
+        try:
+            content = response.choices[0].message.content
+            result = json.loads(content)
+            # Make sure response has expected format
+            if "quiz" not in result:
+                # If the response is an array, wrap it in an object
+                if isinstance(result, list):
+                    result = {"quiz": result}
+                # If it's an object but doesn't have quiz key, add it
+                else:
+                    result = {"quiz": result}
+            return {"success": True, "quiz": result}
+        except json.JSONDecodeError as e:
+            # Fallback for invalid JSON
+            return {"success": False, "error": f"Error parsing JSON response: {str(e)}"}
     
     except Exception as e:
         return {"success": False, "error": f"Error generating quiz: {str(e)}"}

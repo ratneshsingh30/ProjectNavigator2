@@ -17,6 +17,11 @@ if not os.environ.get("OPENAI_API_KEY"):
     st.error("⚠️ OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
     st.stop()
 
+# Set up logging for debugging
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Function to check if URL is a valid YouTube URL
 def is_youtube_url(url):
     youtube_regex = r'^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$'

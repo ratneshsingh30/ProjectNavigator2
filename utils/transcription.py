@@ -35,34 +35,53 @@ def get_youtube_transcript(youtube_url):
         if not video_id:
             return {"success": False, "error": "Could not extract YouTube video ID from the URL."}
         
-        # Get available transcripts
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        
-        # Try to get English transcript first, then fall back to other languages
         try:
-            transcript = transcript_list.find_transcript(['en'])
-        except:
-            # If no English transcript, get the first available and translate it
+            # First try to get the transcript directly without listing all available ones
+            transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
+            full_transcript = ' '.join([entry['text'] for entry in transcript_data])
+            return {"success": True, "transcript": full_transcript}
+        except Exception as inner_e:
+            # If direct method fails, try the more complex approach with language detection
             try:
-                transcript = transcript_list.find_transcript(transcript_list.list_transcripts())
-                transcript = transcript.translate('en')
-            except:
-                # If all else fails, get the first available without translation
-                transcript = list(transcript_list)[0]
-        
-        # Get the transcript text
-        transcript_data = transcript.fetch()
-        
-        # Combine all text pieces
-        full_transcript = ' '.join([entry['text'] for entry in transcript_data])
-        
-        return {"success": True, "transcript": full_transcript}
+                # Get available transcripts
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                
+                # Try to get English transcript first
+                try:
+                    transcript = transcript_list.find_transcript(['en'])
+                except:
+                    # If no English transcript, try to get any transcript and translate it
+                    available_transcripts = list(transcript_list)
+                    if not available_transcripts:
+                        return {"success": False, "error": "No transcripts available for this video."}
+                    
+                    # Get the first available transcript
+                    transcript = available_transcripts[0]
+                    
+                    # Try to translate it if it's not in English
+                    if transcript.language_code != 'en':
+                        try:
+                            transcript = transcript.translate('en')
+                        except:
+                            # Continue with original language if translation fails
+                            pass
+                
+                # Get the transcript text
+                transcript_data = transcript.fetch()
+                
+                # Combine all text pieces
+                full_transcript = ' '.join([entry['text'] for entry in transcript_data])
+                
+                return {"success": True, "transcript": full_transcript}
+            except Exception as nested_e:
+                return {"success": False, "error": f"Failed to get transcript: {str(nested_e)}"}
     
     except Exception as e:
         return {"success": False, "error": f"Error getting YouTube transcript: {str(e)}"}
 
 def transcribe_audio(audio_file):
     """Transcribe audio file using Hugging Face's faster-whisper implementation."""
+    temp_path = None
     try:
         # Create a temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
@@ -73,22 +92,31 @@ def transcribe_audio(audio_file):
         # Transcribe the audio file with faster-whisper
         segments, info = whisper_model.transcribe(temp_path, beam_size=5)
         
+        # Check if transcription was successful
+        if not segments:
+            return {"success": False, "error": "No speech detected in the audio file."}
+        
         # Combine all segments into a full transcript
         transcription_text = ""
         for segment in segments:
             transcription_text += segment.text + " "
         
         # Clean up the temporary file
-        os.unlink(temp_path)
+        if temp_path:
+            os.unlink(temp_path)
+            temp_path = None
+        
+        if not transcription_text.strip():
+            return {"success": False, "error": "Transcription result is empty."}
         
         return {"success": True, "transcript": transcription_text.strip()}
     
     except Exception as e:
         # Clean up the temporary file if it exists
-        try:
-            if 'temp_path' in locals():
+        if temp_path:
+            try:
                 os.unlink(temp_path)
-        except:
-            pass
+            except:
+                pass
         
         return {"success": False, "error": f"Error transcribing audio: {str(e)}"}
