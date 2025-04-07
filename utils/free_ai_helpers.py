@@ -36,7 +36,12 @@ def make_api_request(prompt, max_retries=3, endpoint=None):
     if not endpoint:
         endpoint = get_random_endpoint()
     
+    # Add Hugging Face API token if available
     headers = {"Content-Type": "application/json"}
+    hf_token = os.environ.get("HUGGINGFACE_API_KEY")
+    if hf_token:
+        headers["Authorization"] = f"Bearer {hf_token}"
+    
     data = {"inputs": prompt, "parameters": {"max_length": 500, "temperature": 0.7}}
     
     for attempt in range(max_retries):
