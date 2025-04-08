@@ -53,12 +53,13 @@ def get_reliable_url(topic, resource_type="Article"):
     return random.choice(url_templates[resource_type])
 
 # List of AI API endpoints
-# Using Meta's Llama model as primary and other models as backups
+# Using more reliable free models that don't require special permissions
 FREE_ENDPOINTS = [
-    "https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf",
-    "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", 
     "https://api-inference.huggingface.co/models/google/flan-t5-xxl",
-    "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+    "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
+    "https://api-inference.huggingface.co/models/google/flan-ul2",
+    "https://api-inference.huggingface.co/models/microsoft/DialoGPT-large",
+    "https://api-inference.huggingface.co/models/EleutherAI/gpt-neo-2.7B"
 ]
 
 def get_random_endpoint():
@@ -86,23 +87,39 @@ def make_api_request(prompt, max_retries=3, endpoint=None):
     if hf_token:
         headers["Authorization"] = f"Bearer {hf_token}"
     
-    # Adjust parameters based on if it's a Llama/Mistral model or other
-    is_chat_model = "llama" in endpoint.lower() or "mistral" in endpoint.lower()
+    # Adjust parameters based on model type
+    is_dialogpt = "dialogpt" in endpoint.lower()
+    is_gpt_neo = "gpt-neo" in endpoint.lower()
     
-    if is_chat_model:
-        # For chat models like Llama or Mistral
+    if is_dialogpt:
+        # For DialoGPT model
         data = {
-            "inputs": f"<s>[INST] {prompt} [/INST]",
+            "inputs": f"{prompt}",
             "parameters": {
-                "max_new_tokens": 800,
+                "max_length": 800,
                 "temperature": 0.7,
-                "top_p": 0.95,
-                "do_sample": True
+                "return_full_text": False
+            }
+        }
+    elif is_gpt_neo:
+        # For GPT-Neo model
+        data = {
+            "inputs": prompt,
+            "parameters": {
+                "max_length": 800,
+                "temperature": 0.7,
+                "return_full_text": False
             }
         }
     else:
-        # For other models
-        data = {"inputs": prompt, "parameters": {"max_length": 800, "temperature": 0.7}}
+        # For T5 and BART models
+        data = {
+            "inputs": prompt,
+            "parameters": {
+                "max_length": 800,
+                "temperature": 0.7
+            }
+        }
     
     for attempt in range(max_retries):
         try:
@@ -639,9 +656,11 @@ def generate_study_guide(text):
             ]
             
             # Try each pattern
+            term_entries = []
             for pattern in term_patterns:
-                term_entries = re.findall(pattern, terms_text, re.DOTALL)
-                if term_entries:
+                found_entries = re.findall(pattern, terms_text, re.DOTALL)
+                if found_entries:
+                    term_entries = found_entries
                     break
                     
             # Process found terms
