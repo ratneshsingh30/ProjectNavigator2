@@ -133,6 +133,96 @@ def extract_main_topics(text, top_n=3):
         # Return first few words of text as a fallback
         return ' '.join(text.split()[:5])
 
+# Add functions for extracting information from slide content
+def extract_slide_information(text):
+    """
+    Extract useful information from slide content.
+    
+    Args:
+        text (str): The text content of slides
+        
+    Returns:
+        dict: Dictionary containing slide titles, key terms, and main topics
+    """
+    try:
+        # Extract slide titles
+        slide_pattern = r'Slide\s+(\d+):\s*([^\n]+)'
+        slide_matches = re.findall(slide_pattern, text, re.IGNORECASE)
+        
+        slides = []
+        for num, title in slide_matches:
+            slides.append({
+                "number": int(num),
+                "title": title.strip()
+            })
+        
+        # Sort slides by number
+        slides.sort(key=lambda x: x["number"])
+        
+        # Extract potential key terms (capitalized phrases, bold text)
+        key_terms = []
+        
+        # Look for capitalized multi-word phrases that might be important concepts
+        term_matches = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b', text)
+        for term in term_matches:
+            if len(term) > 5 and term not in [t["term"] for t in key_terms]:
+                key_terms.append({
+                    "term": term,
+                    "context": get_term_context(text, term)
+                })
+        
+        # Look for words in **bold** or marked with emphasis
+        bold_matches = re.findall(r'\*\*(.*?)\*\*', text)
+        for term in bold_matches:
+            if term and term not in [t["term"] for t in key_terms]:
+                key_terms.append({
+                    "term": term,
+                    "context": get_term_context(text, term)
+                })
+        
+        # Extract main topics using the extract_main_topics function
+        main_topics = extract_main_topics(text, top_n=5).split(', ')
+        
+        return {
+            "slides": slides,
+            "key_terms": key_terms[:10],  # Limit to top 10 terms
+            "main_topics": main_topics
+        }
+    except Exception as e:
+        logger.exception(f"Error extracting slide information: {str(e)}")
+        return {
+            "slides": [],
+            "key_terms": [],
+            "main_topics": ["general topic"]
+        }
+
+
+def get_term_context(text, term, context_length=100):
+    """
+    Get the surrounding context for a term in the text.
+    
+    Args:
+        text (str): The full text
+        term (str): The term to find context for
+        context_length (int): The number of characters to include before and after
+        
+    Returns:
+        str: The context surrounding the term
+    """
+    try:
+        term_pattern = re.escape(term)
+        match = re.search(f"(.{{0,{context_length}}}{term_pattern}.{{0,{context_length}}})", text, re.IGNORECASE)
+        
+        if match:
+            context = match.group(1)
+            # Highlight the term within the context
+            highlighted = re.sub(f"({term_pattern})", r"**\1**", context, flags=re.IGNORECASE)
+            return highlighted
+        else:
+            return ""
+    except Exception:
+        return ""
+
 # Define fallback wrapper functions that try OpenAI first, then free APIs
 def get_summary(text, max_bullets=7):
     """Wrapper that tries OpenAI first, then free AI helper."""
@@ -318,9 +408,26 @@ def process_input(input_type, input_content):
         
         # If we have a valid transcript, proceed with generating study materials
         if result["success"] and result["transcript"]:
-            # Extract main topic using our improved topic extraction function
-            topic = extract_main_topics(result["transcript"])
-            logger.info(f"Extracted main topic: {topic}")
+            # Check if this looks like slide content
+            is_slide_content = re.search(r'slide\s+\d+', result["transcript"], re.IGNORECASE) is not None
+            
+            if is_slide_content:
+                # Extract slide-specific information
+                logger.info("Detected slide content, extracting slide information")
+                slide_info = extract_slide_information(result["transcript"])
+                
+                # Use the main topics from slide extraction for resources
+                if slide_info["main_topics"] and slide_info["main_topics"][0] != "general topic":
+                    topic = ", ".join(slide_info["main_topics"][:3])
+                    logger.info(f"Extracted main topics from slides: {topic}")
+                else:
+                    # Fallback to regular topic extraction
+                    topic = extract_main_topics(result["transcript"])
+                    logger.info(f"Extracted main topic: {topic}")
+            else:
+                # Regular topic extraction for non-slide content
+                topic = extract_main_topics(result["transcript"])
+                logger.info(f"Extracted main topic: {topic}")
             
             # Step 2: Generate summary
             logger.info("Generating summary")

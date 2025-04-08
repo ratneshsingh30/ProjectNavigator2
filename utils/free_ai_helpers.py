@@ -52,12 +52,13 @@ def get_reliable_url(topic, resource_type="Article"):
     # Return a random URL from the appropriate category
     return random.choice(url_templates[resource_type])
 
-# List of free AI API endpoints
-# These are public endpoints that might have usage limitations but don't require API keys
+# List of AI API endpoints
+# Using Meta's Llama model as primary and other models as backups
 FREE_ENDPOINTS = [
+    "https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf",
+    "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", 
     "https://api-inference.huggingface.co/models/google/flan-t5-xxl",
-    "https://api-inference.huggingface.co/models/facebook/bart-large-cnn", 
-    "https://api-inference.huggingface.co/models/t5-base"
+    "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
 ]
 
 def get_random_endpoint():
@@ -66,7 +67,7 @@ def get_random_endpoint():
 
 def make_api_request(prompt, max_retries=3, endpoint=None):
     """
-    Make a request to a free AI API endpoint.
+    Make a request to an AI API endpoint.
     
     Args:
         prompt (str): The prompt to send to the API
@@ -85,15 +86,43 @@ def make_api_request(prompt, max_retries=3, endpoint=None):
     if hf_token:
         headers["Authorization"] = f"Bearer {hf_token}"
     
-    data = {"inputs": prompt, "parameters": {"max_length": 500, "temperature": 0.7}}
+    # Adjust parameters based on if it's a Llama/Mistral model or other
+    is_chat_model = "llama" in endpoint.lower() or "mistral" in endpoint.lower()
+    
+    if is_chat_model:
+        # For chat models like Llama or Mistral
+        data = {
+            "inputs": f"<s>[INST] {prompt} [/INST]",
+            "parameters": {
+                "max_new_tokens": 800,
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "do_sample": True
+            }
+        }
+    else:
+        # For other models
+        data = {"inputs": prompt, "parameters": {"max_length": 800, "temperature": 0.7}}
     
     for attempt in range(max_retries):
         try:
-            logger.info(f"Making request to free AI endpoint: {endpoint}")
-            response = requests.post(endpoint, headers=headers, json=data, timeout=10)
+            logger.info(f"Making request to AI endpoint: {endpoint}")
+            response = requests.post(endpoint, headers=headers, json=data, timeout=30)  # Increased timeout
             
             if response.status_code == 200:
-                return response.json()[0]["generated_text"]
+                response_data = response.json()
+                
+                # Handle different response formats
+                if isinstance(response_data, list) and len(response_data) > 0:
+                    if "generated_text" in response_data[0]:
+                        return response_data[0]["generated_text"]
+                    else:
+                        return str(response_data[0])
+                elif isinstance(response_data, dict) and "generated_text" in response_data:
+                    return response_data["generated_text"]
+                else:
+                    # Just return the whole response as string if we can't parse it
+                    return str(response_data)
             
             # If rate limited, wait and retry
             if response.status_code == 429:
@@ -542,7 +571,7 @@ def generate_detailed_notes(text, max_sections=3):
 
 def generate_study_guide(text):
     """
-    Generate a study guide with definitions, key terms, and flashcards using free AI APIs.
+    Generate a study guide with definitions, key terms, and flashcards using AI APIs.
     
     Args:
         text (str): The text to generate a study guide from
@@ -554,19 +583,38 @@ def generate_study_guide(text):
         # Truncate long inputs
         truncated_text = text[:10000] + "..." if len(text) > 10000 else text
         
+        # Extract slide titles
+        slide_titles = []
+        slide_pattern = r'Slide \d+:?\s*([^0-9\n]+?)(?:\d|$)'
+        matches = re.findall(slide_pattern, truncated_text)
+        if matches:
+            slide_titles = [title.strip() for title in matches if len(title.strip()) > 3]
+        
+        # Add slide titles to the prompt if found
+        slide_text = ""
+        if slide_titles:
+            slide_text = "Focus on these key topics from the lecture slides:\n" + "\n".join([f"- {title}" for title in slide_titles[:10]])
+        
         prompt = (
-            f"Create a study guide from this text with: "
-            f"1. 5 key terms with definitions, "
-            f"2. 5 important concepts, "
-            f"3. 5 flashcards (question-answer pairs):\n\n{truncated_text}"
+            f"Create a comprehensive study guide from this educational content. {slide_text}\n\n"
+            f"Include these specific sections in your response:\n\n"
+            f"1. KEY TERMS: 5-7 important terms with clear definitions\n"
+            f"2. IMPORTANT CONCEPTS: 5 key concepts presented as bullet points\n"
+            f"3. FLASHCARDS: 5 question-answer pairs formatted as 'Q: [question]' and 'A: [answer]'\n\n"
+            f"Format your response with clear section headings. Make sure all definitions are accurate and examples are relevant.\n\n{truncated_text}"
         )
         
-        # Try to get study guide from free API
+        # Try to get study guide from API
         generated_text = make_api_request(prompt)
         
         if not generated_text:
             # Simple fallback if all APIs fail
-            return {"success": False, "error": "Unable to generate study guide from free APIs"}
+            # Try another model as a last resort
+            last_chance_endpoint = "https://api-inference.huggingface.co/models/google/flan-t5-xxl"
+            generated_text = make_api_request(prompt, endpoint=last_chance_endpoint)
+            
+            if not generated_text:
+                return {"success": False, "error": "Unable to generate study guide. Please try again later."}
         
         # Process and structure the response
         sections = {
@@ -653,7 +701,7 @@ def generate_study_guide(text):
         
 def generate_quiz(text, num_questions=5):
     """
-    Generate multiple-choice quiz questions based on the text using free AI APIs.
+    Generate multiple-choice quiz questions based on the text using AI APIs.
     
     Args:
         text (str): The text to generate questions from
@@ -666,18 +714,39 @@ def generate_quiz(text, num_questions=5):
         # Truncate long inputs
         truncated_text = text[:10000] + "..." if len(text) > 10000 else text
         
+        # Extract slide titles and topics for more targeted questions
+        slide_titles = []
+        slide_pattern = r'Slide \d+:?\s*([^0-9\n]+?)(?:\d|$)'
+        matches = re.findall(slide_pattern, truncated_text)
+        if matches:
+            slide_titles = [title.strip() for title in matches if len(title.strip()) > 3]
+        
+        # Add slide titles to the prompt if found
+        slide_text = ""
+        if slide_titles:
+            slide_text = "Focus questions on these key topics from the slides:\n" + "\n".join([f"- {title}" for title in slide_titles[:10]])
+        
         prompt = (
-            f"Create {num_questions} multiple-choice quiz questions based on this text. "
-            f"For each question, provide 4 options (A, B, C, D), indicate the correct answer, "
-            f"and give a brief explanation for the answer:\n\n{truncated_text}"
+            f"Create a quiz with {num_questions} multiple-choice questions based on this lecture content. {slide_text}\n\n"
+            f"For each question:\n"
+            f"1. Make the question clear and specific\n"
+            f"2. Provide exactly 4 options labeled A, B, C, and D\n"
+            f"3. Make sure only ONE option is correct\n"
+            f"4. Clearly mark the correct answer (e.g., 'Correct Answer: B')\n"
+            f"5. Include a brief explanation of why the answer is correct\n\n"
+            f"Format each question with a number, followed by options on separate lines.\n\n{truncated_text}"
         )
         
-        # Try to get quiz from free API
+        # Try to get quiz from API
         generated_text = make_api_request(prompt)
         
         if not generated_text:
-            # Simple fallback if all APIs fail
-            return {"success": False, "error": "Unable to generate quiz from free APIs"}
+            # Try another model as a last resort
+            last_chance_endpoint = "https://api-inference.huggingface.co/models/google/flan-t5-xxl"
+            generated_text = make_api_request(prompt, endpoint=last_chance_endpoint)
+            
+            if not generated_text:
+                return {"success": False, "error": "Unable to generate quiz. Please try again later."}
         
         # Process and structure the response
         quiz_questions = []
