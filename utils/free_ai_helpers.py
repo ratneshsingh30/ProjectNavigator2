@@ -352,9 +352,14 @@ def generate_detailed_notes(text, max_sections=3):
         
         prompt = (
             f"Create detailed study notes on this content with {max_sections} main topic sections. "
-            f"For each section include: a title, 3-5 key points in bold formatting (**key point**), "
-            f"explanatory paragraphs, and at least one specific example. "
-            f"Use markdown formatting:\n\n{truncated_text}"
+            f"For each section include: \n"
+            f"1. A clear title/heading\n"
+            f"2. A concise definition of the topic\n"
+            f"3. 3-5 key points marked in bold (**key point**)\n"
+            f"4. At least one specific example\n"
+            f"5. If applicable, mention where diagrams or visual aids would be helpful\n\n"
+            f"Format each section as a complete unit with all these elements. "
+            f"Use markdown formatting throughout.\n\n{truncated_text}"
         )
         
         # Try to get notes from free API
@@ -387,6 +392,9 @@ def generate_detailed_notes(text, max_sections=3):
                             topic = " ".join(topic_words[:2])
                         else:
                             topic = f"Topic {i+1}"
+                        
+                        # Create a definition (first sentence)
+                        definition = chunk[0] if chunk else "No definition available."
                             
                         # Find key points (longer sentences)
                         key_points = []
@@ -397,18 +405,31 @@ def generate_detailed_notes(text, max_sections=3):
                                 break
                         
                         # Build content with the remaining sentences
-                        remaining = [s for s in chunk if s not in key_points]
+                        remaining = [s for s in chunk if s not in key_points and s != definition]
                         content = " ".join(remaining[:5])  # First few sentences
                         
-                        # Create an example
-                        example = "For example, " + (remaining[-1] if remaining else key_points[0])
+                        # Create examples
+                        examples = []
+                        for sentence in remaining:
+                            if "example" in sentence.lower() or "instance" in sentence.lower() or "case" in sentence.lower():
+                                examples.append(sentence)
+                                
+                        example = examples[0] if examples else "For example, " + (remaining[-1] if remaining else key_points[0])
+                        
+                        # Check for potential diagram references
+                        diagrams = []
+                        for sentence in chunk:
+                            if any(term in sentence.lower() for term in ["diagram", "figure", "image", "picture", "illustration", "graph", "chart"]):
+                                diagrams.append(sentence)
                         
                         # Add the section
                         sections.append({
-                            "title": topic,
+                            "topic": topic,
+                            "definition": definition,
                             "key_points": key_points[:3],
                             "content": content,
-                            "example": example
+                            "examples": [example],
+                            "diagrams": diagrams
                         })
             
             return {"success": True, "notes": sections}
@@ -426,26 +447,41 @@ def generate_detailed_notes(text, max_sections=3):
                 # Extract key points (bolded text)
                 key_points = re.findall(r'\*\*(.+?)\*\*', text_block)
                 
-                # Extract an example if present
-                example_match = re.search(r'(?:Example|For example|For instance)[:\s]+(.*?)(?=(?:\n\n)|$)', text_block, re.IGNORECASE | re.DOTALL)
-                example = example_match.group(1).strip() if example_match else "No specific example provided."
+                # Extract definition (first paragraph after title)
+                paragraphs = text_block.split('\n\n')
+                definition = paragraphs[0].strip() if paragraphs else "No definition available."
                 
-                # Remove the key points and example from content
+                # Extract examples
+                examples = []
+                example_matches = re.finditer(r'(?:Example|For example|For instance|e\.g\.)[:\s]+(.*?)(?=(?:\n\n)|$)', text_block, re.IGNORECASE | re.DOTALL)
+                for match in example_matches:
+                    examples.append(match.group(1).strip())
+                
+                if not examples:
+                    examples = ["No specific example provided."]
+                
+                # Extract diagram references
+                diagrams = []
+                diagram_matches = re.finditer(r'(?:Diagram|Figure|Visual|Image|Picture|Illustration|Graph|Chart)[:\s]+(.*?)(?=(?:\n\n)|$)', text_block, re.IGNORECASE | re.DOTALL)
+                for match in diagram_matches:
+                    diagrams.append(match.group(1).strip())
+                
+                # Remove the key points from content for clarity
                 content = text_block
                 for point in key_points:
-                    content = content.replace(f"**{point}**", "")
-                if example_match:
-                    content = content.replace(example_match.group(0), "")
+                    content = content.replace(f"**{point}**", point)
                 
                 # Clean up content
                 content = re.sub(r'\n{3,}', '\n\n', content.strip())
                 
                 # Add the section
                 sections.append({
-                    "title": current_title,
+                    "topic": current_title,
+                    "definition": definition,
                     "key_points": key_points,
                     "content": content,
-                    "example": example
+                    "examples": examples,
+                    "diagrams": diagrams
                 })
             elif i % 2 == 1:  # Odd indexes are section titles
                 current_title = text_block.strip()
@@ -461,23 +497,42 @@ def generate_detailed_notes(text, max_sections=3):
                     
                     # Find key sentences (ones with key terms)
                     sentences = re.split(r'(?<=[.!?])\s+', para)
+                    definition = sentences[0] if sentences else "No definition available."
+                    
                     key_sentences = []
-                    for sentence in sentences:
-                        if "key" in sentence.lower() or "important" in sentence.lower() or "critical" in sentence.lower():
+                    for sentence in sentences[1:]:  # Skip first sentence (definition)
+                        if any(term in sentence.lower() for term in ["key", "important", "critical", "essential", "fundamental"]):
                             key_sentences.append(sentence)
                         if len(key_sentences) >= 3:
                             break
                     
                     # If no key sentences found, use the longest ones
                     if not key_sentences:
-                        key_sentences = sorted(sentences, key=len, reverse=True)[:3]
+                        key_sentences = sorted(sentences[1:], key=len, reverse=True)[:3]
+                    
+                    # Look for examples
+                    examples = []
+                    for sentence in sentences:
+                        if any(term in sentence.lower() for term in ["example", "instance", "e.g.", "such as"]):
+                            examples.append(sentence)
+                    
+                    if not examples:
+                        examples = ["Example: " + (sentences[-1] if len(sentences) > 1 else "No specific example available.")]
+                    
+                    # Look for diagram references
+                    diagrams = []
+                    for sentence in sentences:
+                        if any(term in sentence.lower() for term in ["diagram", "figure", "visual", "image", "picture", "illustration", "graph", "chart"]):
+                            diagrams.append(sentence)
                     
                     # Add the section
                     sections.append({
-                        "title": title,
+                        "topic": title,
+                        "definition": definition,
                         "key_points": key_sentences,
                         "content": para,
-                        "example": "Example: " + (sentences[-1] if sentences else "No specific example available.")
+                        "examples": examples,
+                        "diagrams": diagrams
                     })
         
         return {"success": True, "notes": sections}

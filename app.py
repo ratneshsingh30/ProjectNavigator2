@@ -137,6 +137,30 @@ st.markdown("""
         margin-top: 0.5rem;
         line-height: 1.6;
     }
+    
+    .definition-box {
+        background-color: #f5f8fa;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #2980b9;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    .diagram-ref {
+        background-color: #f0f7fb;
+        padding: 0.8rem;
+        border-radius: 6px;
+        margin-top: 0.5rem;
+        border-left: 3px solid #3498db;
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+    
+    .diagram-ref i {
+        margin-right: 0.5rem;
+        color: #3498db;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -530,23 +554,48 @@ else:
             # Verify we have notes sections
             if notes_data and isinstance(notes_data, list) and len(notes_data) > 0:
                 for section in notes_data:
-                    if isinstance(section, dict) and "title" in section:
-                        with st.expander(f"📌 {section['title']}", expanded=True):
+                    # Support both the old "title" and new "topic" field names
+                    section_title = section.get("topic", section.get("title", "Untitled Section"))
+                    section_key = "title" if "title" in section else "topic"
+                    
+                    if isinstance(section, dict) and section_key in section:
+                        with st.expander(f"📌 {section_title}", expanded=True):
+                            # Display definition (if available)
+                            if "definition" in section and section["definition"]:
+                                st.markdown(f'<div class="definition-box"><strong>Definition:</strong> {section["definition"]}</div>', unsafe_allow_html=True)
+                                st.write("---")
+                            
                             # Display key points in bold
                             if "key_points" in section and section["key_points"]:
                                 st.subheader("Key Points:")
                                 for point in section["key_points"]:
-                                    st.markdown(f'<div class="key-point">{point}</div>', unsafe_allow_html=True)
+                                    # For key points that are already in bold format, extract and display the text
+                                    if isinstance(point, str) and point.startswith("**") and point.endswith("**"):
+                                        point_text = point[2:-2]  # Remove the ** markers
+                                    else:
+                                        point_text = point
+                                    st.markdown(f'<div class="key-point">{point_text}</div>', unsafe_allow_html=True)
                                 st.write("---")
                             
                             # Display content
                             if "content" in section and section["content"]:
-                                st.write(section["content"])
+                                st.markdown(section["content"])
                             
-                            # Display example
-                            if "example" in section and section["example"]:
+                            # Display examples (multiple if available)
+                            if "examples" in section and section["examples"] and isinstance(section["examples"], list):
+                                st.subheader("Examples:")
+                                for example in section["examples"]:
+                                    st.markdown(f'<div class="example-text">{example}</div>', unsafe_allow_html=True)
+                            # Fallback for old format with single example
+                            elif "example" in section and section["example"]:
                                 st.subheader("Example:")
                                 st.markdown(f'<div class="example-text">{section["example"]}</div>', unsafe_allow_html=True)
+                            
+                            # Display diagram references (if available)
+                            if "diagrams" in section and section["diagrams"] and isinstance(section["diagrams"], list) and len(section["diagrams"]) > 0:
+                                st.subheader("Diagram References:")
+                                for diagram in section["diagrams"]:
+                                    st.markdown(f'<div class="diagram-ref"><i>📊</i> {diagram}</div>', unsafe_allow_html=True)
             else:
                 st.info("No detailed notes available.")
         else:
