@@ -665,17 +665,22 @@ else:
         # Show form to upload profile data
         st.write("Upload your resume and/or LinkedIn profile to receive personalized insights about how this topic relates to your background and career path.")
         
-        col1, col2 = st.columns(2)
+        resume_col, linkedin_file_col, linkedin_url_col = st.columns([1, 1, 1])
         
-        with col1:
+        with resume_col:
             resume_file = st.file_uploader("Upload your resume (PDF/DOCX):", type=["pdf", "docx"], key="resume_upload")
         
-        with col2:
-            linkedin_file = st.file_uploader("Upload your LinkedIn profile (PDF/DOCX/TXT):", type=["pdf", "docx", "txt"], key="linkedin_upload")
+        with linkedin_file_col:
+            linkedin_file = st.file_uploader("Upload LinkedIn profile (PDF/DOCX/TXT):", type=["pdf", "docx", "txt"], key="linkedin_upload")
+        
+        with linkedin_url_col:
+            linkedin_url = st.text_input("Or paste LinkedIn profile URL:", placeholder="https://www.linkedin.com/in/yourusername", key="linkedin_url")
+            if linkedin_url and not linkedin_file:
+                linkedin_file = linkedin_url  # Pass the URL as a string instead of a file object
         
         if st.button("Generate Personalized Insights", key="generate_insights"):
-            if resume_file is None and linkedin_file is None:
-                st.warning("Please upload at least one file (resume or LinkedIn profile).")
+            if resume_file is None and linkedin_file is None and linkedin_url == "":
+                st.warning("Please upload at least one file (resume or LinkedIn profile) or provide a LinkedIn URL.")
             else:
                 with st.spinner("Analyzing your profile and generating personalized insights..."):
                     # Get the study content from the results, with safe access

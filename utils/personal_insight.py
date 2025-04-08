@@ -24,16 +24,44 @@ def extract_text_from_resume(resume_file):
 
 def extract_text_from_linkedin(linkedin_file):
     """
-    Extract text content from a LinkedIn profile file (PDF, DOCX, TXT).
+    Extract text content from a LinkedIn profile file (PDF, DOCX, TXT) or URL.
     
     Args:
-        linkedin_file: The LinkedIn profile file object
+        linkedin_file: The LinkedIn profile file object or URL string
         
     Returns:
         dict: Dictionary with success status and extracted text or error message
     """
-    logger.info(f"Processing LinkedIn profile: {linkedin_file.name}")
-    return process_file(linkedin_file)
+    try:
+        # Check if input is a string (URL) or a file object
+        if isinstance(linkedin_file, str):
+            # Handle LinkedIn URL
+            if "linkedin.com" in linkedin_file.lower():
+                logger.info(f"Processing LinkedIn URL: {linkedin_file}")
+                # For privacy and terms of service reasons, we can't scrape LinkedIn
+                # But we can extract the profile username/ID from the URL
+                
+                # Try to extract the username from LinkedIn URL
+                match = re.search(r'linkedin\.com/in/([^/]+)', linkedin_file)
+                if match:
+                    username = match.group(1)
+                    # Create a basic profile based on username
+                    profile_info = f"LinkedIn Profile: {username}\n"
+                    profile_info += f"URL: {linkedin_file}\n"
+                    profile_info += "User has shared their LinkedIn profile for personalization.\n"
+                    return {"success": True, "text": profile_info}
+                else:
+                    return {"success": False, "error": "Unable to process LinkedIn URL. Please provide a valid profile URL."}
+            else:
+                return {"success": False, "error": "Invalid LinkedIn URL. Please provide a valid LinkedIn profile URL."}
+        else:
+            # Process as file upload
+            logger.info(f"Processing LinkedIn profile file: {linkedin_file.name}")
+            return process_file(linkedin_file)
+            
+    except Exception as e:
+        logger.exception(f"Error extracting text from LinkedIn profile: {str(e)}")
+        return {"success": False, "error": f"Error extracting text from LinkedIn profile: {str(e)}"}
 
 def generate_personal_insights(resume_text, linkedin_text, study_content):
     """
