@@ -20,6 +20,11 @@ from .free_ai_helpers import generate_study_guide as free_generate_study_guide
 from .free_ai_helpers import generate_quiz as free_generate_quiz
 from .free_ai_helpers import generate_detailed_notes
 
+# Import static fallbacks as last resort when all APIs fail
+from .static_fallbacks import get_static_summary, get_static_resources
+from .static_fallbacks import generate_static_study_guide, generate_static_quiz
+from .static_fallbacks import generate_static_topic_notes
+
 # Try to download NLTK resources silently
 try:
     nltk.download('punkt', quiet=True)
@@ -225,7 +230,7 @@ def get_term_context(text, term, context_length=100):
 
 # Define fallback wrapper functions that try OpenAI first, then free APIs
 def get_summary(text, max_bullets=7):
-    """Wrapper that tries OpenAI first, then free AI helper."""
+    """Wrapper that tries OpenAI first, then free AI helper, then static fallback."""
     try:
         # Try OpenAI first
         logger.info("Trying OpenAI for summary")
@@ -236,14 +241,20 @@ def get_summary(text, max_bullets=7):
         # If OpenAI fails, try free AI helper
         logger.info("OpenAI failed, trying free AI for summary")
         result = free_get_summary(text, max_bullets)
-        return result
+        if result["success"]:
+            return result
+            
+        # If free AI helper fails, use static fallback
+        logger.info("Free AI failed, using static fallback for summary")
+        return get_static_summary(text, max_bullets)
     except Exception as e:
         logger.exception(f"Error in get_summary fallback: {str(e)}")
-        # If all else fails, try free API directly
-        return free_get_summary(text, max_bullets)
+        # If all else fails, use static fallback
+        logger.info("Using static fallback for summary after exception")
+        return get_static_summary(text, max_bullets)
 
 def get_resources(topic, max_resources=3):
-    """Wrapper that tries OpenAI first, then free AI helper."""
+    """Wrapper that tries OpenAI first, then free AI helper, then static fallback."""
     try:
         # Try OpenAI first
         logger.info("Trying OpenAI for resources")
@@ -254,14 +265,20 @@ def get_resources(topic, max_resources=3):
         # If OpenAI fails, try free AI helper
         logger.info("OpenAI failed, trying free AI for resources")
         result = free_get_resources(topic, max_resources)
-        return result
+        if result["success"]:
+            return result
+            
+        # If free AI helper fails, use static fallback
+        logger.info("Free AI failed, using static fallback for resources")
+        return get_static_resources(topic, max_resources)
     except Exception as e:
         logger.exception(f"Error in get_resources fallback: {str(e)}")
-        # If all else fails, try free API directly
-        return free_get_resources(topic, max_resources)
+        # If all else fails, use static fallback
+        logger.info("Using static fallback for resources after exception")
+        return get_static_resources(topic, max_resources)
 
 def generate_study_guide(text):
-    """Wrapper that tries OpenAI first, then free AI helper."""
+    """Wrapper that tries OpenAI first, then free AI helper, then static fallback."""
     try:
         # Try OpenAI first
         logger.info("Trying OpenAI for study guide")
@@ -272,14 +289,20 @@ def generate_study_guide(text):
         # If OpenAI fails, try free AI helper
         logger.info("OpenAI failed, trying free AI for study guide")
         result = free_generate_study_guide(text)
-        return result
+        if result["success"]:
+            return result
+            
+        # If free AI helper fails, use static fallback
+        logger.info("Free AI failed, using static fallback for study guide")
+        return generate_static_study_guide(text)
     except Exception as e:
         logger.exception(f"Error in generate_study_guide fallback: {str(e)}")
-        # If all else fails, try free API directly
-        return free_generate_study_guide(text)
+        # If all else fails, use static fallback
+        logger.info("Using static fallback for study guide after exception")
+        return generate_static_study_guide(text)
 
 def generate_quiz(text, num_questions=5):
-    """Wrapper that tries OpenAI first, then free AI helper."""
+    """Wrapper that tries OpenAI first, then free AI helper, then static fallback."""
     try:
         # Try OpenAI first
         logger.info("Trying OpenAI for quiz")
@@ -290,24 +313,35 @@ def generate_quiz(text, num_questions=5):
         # If OpenAI fails, try free AI helper
         logger.info("OpenAI failed, trying free AI for quiz")
         result = free_generate_quiz(text, num_questions)
-        return result
+        if result["success"]:
+            return result
+            
+        # If free AI helper fails, use static fallback
+        logger.info("Free AI failed, using static fallback for quiz")
+        return generate_static_quiz(text, num_questions)
     except Exception as e:
         logger.exception(f"Error in generate_quiz fallback: {str(e)}")
-        # If all else fails, try free API directly
-        return free_generate_quiz(text, num_questions)
+        # If all else fails, use static fallback
+        logger.info("Using static fallback for quiz after exception")
+        return generate_static_quiz(text, num_questions)
 
 def generate_topic_notes(text, max_sections=3):
     """Generate detailed notes for each topic with key points in bold and examples."""
     try:
         logger.info("Generating detailed topic notes")
-        # No OpenAI version yet, just use the free AI helper
+        # Try free AI helper first
         result = generate_detailed_notes(text, max_sections)
-        if not result["success"]:
-            logger.error(f"Failed to generate detailed notes: {result.get('error', 'Unknown error')}")
-        return result
+        if result["success"]:
+            return result
+            
+        # If free AI helper fails, use static fallback
+        logger.info("Free AI failed, using static fallback for detailed notes")
+        return generate_static_topic_notes(text, max_sections)
     except Exception as e:
         logger.exception(f"Error in generate_topic_notes: {str(e)}")
-        return {"success": False, "error": f"Error generating detailed notes: {str(e)}"}
+        # If all else fails, use static fallback
+        logger.info("Using static fallback for detailed notes after exception")
+        return generate_static_topic_notes(text, max_sections)
 
 def process_input(input_type, input_content):
     """
