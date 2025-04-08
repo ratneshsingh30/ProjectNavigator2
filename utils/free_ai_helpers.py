@@ -284,7 +284,6 @@ def get_resources(topic, max_resources=3):
         # Try to parse JSON from the response
         try:
             # Check if the response contains JSON data enclosed in ```json ... ``` or similar
-            import re
             json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', generated_text)
             
             if json_match:

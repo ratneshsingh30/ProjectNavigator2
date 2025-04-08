@@ -7,6 +7,11 @@ from .file_processor import process_file
 import logging
 import os
 import io
+import re
+import nltk
+from collections import Counter
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize, sent_tokenize
 
 # Import free AI helpers as fallbacks
 from .free_ai_helpers import get_summary as free_get_summary
@@ -15,8 +20,118 @@ from .free_ai_helpers import generate_study_guide as free_generate_study_guide
 from .free_ai_helpers import generate_quiz as free_generate_quiz
 from .free_ai_helpers import generate_detailed_notes
 
+# Try to download NLTK resources silently
+try:
+    nltk.download('punkt', quiet=True)
+    nltk.download('stopwords', quiet=True)
+except:
+    # Continue even if download fails
+    pass
+
 # Set up logging
 logger = logging.getLogger(__name__)
+
+def extract_main_topics(text, top_n=3):
+    """
+    Extract the main topics from a text using NLP techniques.
+    
+    Args:
+        text (str): The text to extract topics from
+        top_n (int): Number of topics to extract
+        
+    Returns:
+        str: The main topic as a string
+    """
+    try:
+        # Clean the text
+        text = re.sub(r'[^\w\s]', ' ', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Try to find specific topic markers
+        topic_keywords = ["topic:", "subject:", "about:", "focuses on:"]
+        for keyword in topic_keywords:
+            if keyword in text.lower():
+                idx = text.lower().find(keyword) + len(keyword)
+                end_idx = text.find('.', idx)
+                if end_idx > 0:
+                    topic = text[idx:end_idx].strip()
+                    if 3 <= len(topic.split()) <= 10:
+                        return topic
+        
+        # Find main topic from slide titles
+        slide_pattern = r'Slide \d+:?\s*([^0-9\n]+?)(?:\d|$)'
+        slide_titles = re.findall(slide_pattern, text)
+        if slide_titles:
+            # Get the most common meaningful slide title
+            filtered_titles = [title.strip() for title in slide_titles 
+                             if len(title.split()) <= 5 and len(title.strip()) > 3]
+            if filtered_titles:
+                return max(set(filtered_titles), key=filtered_titles.count)
+        
+        # Try to find the main subject using frequency analysis
+        try:
+            # Tokenize
+            words = word_tokenize(text.lower())
+            
+            # Filter stop words and short words
+            try:
+                stop_words = set(stopwords.words('english'))
+            except:
+                # Fallback if NLTK data is not available
+                stop_words = {"the", "and", "a", "an", "in", "on", "at", "with", "for", "to", "of", "is", "are"}
+            
+            words = [word for word in words if word not in stop_words and len(word) > 3]
+            
+            # Get the most frequent words
+            word_freq = Counter(words)
+            most_common_words = [word for word, _ in word_freq.most_common(15)]
+            
+            # Look for these words in sentences to extract key phrases
+            sentences = sent_tokenize(text)
+            topic_candidates = []
+            
+            for sent in sentences[:10]:  # Look at first 10 sentences
+                for word in most_common_words:
+                    if word in sent.lower():
+                        topic_candidates.append(sent.strip())
+                        break
+            
+            if topic_candidates:
+                # Return the first good candidate
+                for candidate in topic_candidates:
+                    # Extract a reasonably sized phrase
+                    if 10 <= len(candidate.split()) <= 30:
+                        return ' '.join(candidate.split()[:7])  # First 7 words
+                    elif len(candidate.split()) < 10:
+                        return candidate
+                
+                # If we got here, return the shortest candidate
+                shortest = min(topic_candidates, key=lambda x: len(x.split()))
+                return ' '.join(shortest.split()[:5])  # First 5 words
+        except:
+            # If NLP processing fails, fall back to a simpler approach
+            pass
+        
+        # Simple fallback: Extract first 3-5 meaningful words from first sentence
+        first_sentence = text.split('.')[0]
+        words = first_sentence.split()
+        try:
+            stop_words = set(stopwords.words('english'))
+        except:
+            # Fallback if NLTK data is not available
+            stop_words = {"the", "and", "a", "an", "in", "on", "at", "with", "for", "to", "of", "is", "are"}
+        clean_words = [w for w in words if len(w) > 3 and w.lower() not in stop_words][:5]
+        
+        # If we still have nothing, just return the first few words
+        if not clean_words and words:
+            return ' '.join(words[:5])
+        
+        return ' '.join(clean_words)
+    
+    except Exception as e:
+        logger.exception(f"Error extracting main topics: {str(e)}")
+        # Return first few words of text as a fallback
+        return ' '.join(text.split()[:5])
 
 # Define fallback wrapper functions that try OpenAI first, then free APIs
 def get_summary(text, max_bullets=7):
@@ -203,9 +318,9 @@ def process_input(input_type, input_content):
         
         # If we have a valid transcript, proceed with generating study materials
         if result["success"] and result["transcript"]:
-            # Determine the topic from the transcript (first few sentences)
-            topic = ' '.join(result["transcript"].split()[:30])
-            logger.info(f"Generated topic excerpt: {topic[:50]}...")
+            # Extract main topic using our improved topic extraction function
+            topic = extract_main_topics(result["transcript"])
+            logger.info(f"Extracted main topic: {topic}")
             
             # Step 2: Generate summary
             logger.info("Generating summary")
